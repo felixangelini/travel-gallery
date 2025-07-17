@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { PhotoGrid } from '@/components/photo-grid';
 import { UploadDrawer } from '@/components/upload-drawer';
+import { EditDrawer } from '@/components/edit-drawer';
 import { TravelPhoto, Tag } from '@/lib/types';
 import { parseISO, isWithinInterval, startOfDay, endOfDay, format } from 'date-fns';
 import { Filters } from './_components/filters';
@@ -16,6 +17,8 @@ export default function GalleryPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
+  const [photoToEdit, setPhotoToEdit] = useState<TravelPhoto | null>(null);
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
   const [selectedLocation, setSelectedLocation] = useState<string>('');
@@ -55,15 +58,16 @@ export default function GalleryPage() {
 
   useEffect(() => {
     if (user) {
-      // Sync user to database first
+      // Sync user to database first (silent error handling)
       const syncUser = async () => {
         try {
           await postData('/api/users/sync', {
             email: user.email || '',
             username: user.user_metadata?.username
           });
-        } catch (error) {
-          console.error('Error syncing user:', error);
+        } catch {
+        // Silent error - don't log to console
+        // console.error('Error syncing user:', error);
         }
       };
 
@@ -81,6 +85,17 @@ export default function GalleryPage() {
 
   const handlePhotoDeleted = () => {
     loadPhotos();
+  };
+
+  const handleEditPhoto = (photo: TravelPhoto) => {
+    setPhotoToEdit(photo);
+    setIsEditDrawerOpen(true);
+  };
+
+  const handlePhotoUpdated = () => {
+    loadPhotos();
+    setIsEditDrawerOpen(false);
+    setPhotoToEdit(null);
   };
 
   const filteredPhotos = photos.filter(photo => {
@@ -137,13 +152,23 @@ export default function GalleryPage() {
           </p>
         </div>
         
-        <UploadDrawer
-          isOpen={isDrawerOpen}
-          onOpenChange={setIsDrawerOpen}
-          onPhotoUploaded={handlePhotoUploaded}
-          availableTags={tags}
-          onTagsUpdated={loadTags}
-        />
+        <div className="flex gap-2">
+          <UploadDrawer
+            isOpen={isDrawerOpen}
+            onOpenChange={setIsDrawerOpen}
+            onPhotoUploaded={handlePhotoUploaded}
+            availableTags={tags}
+            onTagsUpdated={loadTags}
+          />
+          <EditDrawer
+            isOpen={isEditDrawerOpen}
+            onOpenChange={setIsEditDrawerOpen}
+            onPhotoUpdated={handlePhotoUpdated}
+            availableTags={tags}
+            onTagsUpdated={loadTags}
+            photoToEdit={photoToEdit}
+          />
+        </div>
       </div>
 
 
@@ -180,6 +205,7 @@ export default function GalleryPage() {
         <PhotoGrid
           photos={filteredPhotos}
           onPhotoDeleted={handlePhotoDeleted}
+          onPhotoEdited={handleEditPhoto}
         />
       </div>
     </div>

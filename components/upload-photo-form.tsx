@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useSupabase } from '@/lib/hooks';
-import { CreatePhotoData, Tag } from '@/lib/types';
+import { CreatePhotoData, UpdatePhotoData, Tag, TravelPhoto } from '@/lib/types';
 import { Upload, X, Image as ImageIcon } from 'lucide-react';
 import { LocationDropdown } from './location-dropdown';
 import { DatePicker } from './date-picker';
@@ -16,22 +16,32 @@ import { toast } from 'sonner';
 import { useApi } from '@/lib/hooks';
 
 interface UploadPhotoFormProps {
-  onPhotoUploaded: () => void;
+  onPhotoUploaded?: () => void;
   availableTags: Tag[];
   onTagsUpdated?: () => void;
+  mode?: 'upload' | 'edit';
+  photoToEdit?: TravelPhoto;
+  onPhotoUpdated?: () => void;
 }
 
 interface PhotoFormData {
-  file: File;
+  file?: File;
   previewUrl: string;
   data: CreatePhotoData;
   isUploading: boolean;
   error?: string;
 }
 
-export function UploadPhotoForm({ onPhotoUploaded, availableTags, onTagsUpdated }: UploadPhotoFormProps) {
+export function UploadPhotoForm({
+  onPhotoUploaded,
+  availableTags,
+  onTagsUpdated,
+  mode = 'upload',
+  photoToEdit,
+  onPhotoUpdated
+}: UploadPhotoFormProps) {
   const { client, user } = useSupabase();
-  const { postData } = useApi();
+  const { postData, putData } = useApi();
   const [photoForms, setPhotoForms] = useState<PhotoFormData[]>([]);
   const [isUploadingAll, setIsUploadingAll] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -41,6 +51,25 @@ export function UploadPhotoForm({ onPhotoUploaded, availableTags, onTagsUpdated 
   // Update local tags when available tags change
   useState(() => {
     setLocalTags(availableTags);
+  });
+
+  // Initialize form for edit mode
+  useState(() => {
+    if (mode === 'edit' && photoToEdit) {
+      const editFormData: PhotoFormData = {
+        previewUrl: photoToEdit.image_url,
+        data: {
+          title: photoToEdit.title,
+          description: photoToEdit.description || '',
+          image_url: photoToEdit.image_url,
+          location: photoToEdit.location || '',
+          date_taken: photoToEdit.date_taken || '',
+          tags: photoToEdit.tags?.map(tag => tag.name) || []
+        },
+        isUploading: false
+      };
+      setPhotoForms([editFormData]);
+    }
   });
 
   const uploadImage = async (file: File): Promise<string> => {
@@ -81,6 +110,18 @@ export function UploadPhotoForm({ onPhotoUploaded, availableTags, onTagsUpdated 
       return photo;
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Error creating photo');
+    }
+  };
+
+  const updatePhotoRecord = async (id: string, photoData: UpdatePhotoData) => {
+    if (!user) throw new Error('User not authenticated');
+
+    try {
+      // Update photo using API
+      const photo = await putData(`/api/photos/${id}`, photoData);
+      return photo;
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Error updating photo');
     }
   };
 
@@ -192,19 +233,31 @@ export function UploadPhotoForm({ onPhotoUploaded, availableTags, onTagsUpdated 
 
   const uploadSinglePhoto = async (photoForm: PhotoFormData, index: number): Promise<boolean> => {
     try {
-      // Upload image
-      const imageUrl = await uploadImage(photoForm.file);
+      let imageUrl = photoForm.data.image_url;
 
-      // Create photo record
-      await createPhotoRecord({
-        ...photoForm.data,
-        image_url: imageUrl
-      });
+      // Upload new image if file exists (upload mode)
+      if (photoForm.file) {
+        imageUrl = await uploadImage(photoForm.file);
+      }
+
+      if (mode === 'edit' && photoToEdit) {
+        // Update existing photo
+        await updatePhotoRecord(photoToEdit.id, {
+          ...photoForm.data,
+          image_url: imageUrl
+        });
+      } else {
+        // Create new photo
+        await createPhotoRecord({
+          ...photoForm.data,
+          image_url: imageUrl
+        });
+      }
 
       return true;
     } catch (error) {
-      console.error(`Error uploading photo ${index + 1}:`, error);
-      const errorMessage = error instanceof Error ? error.message : 'Error during upload';
+      console.error(`Error ${mode === 'edit' ? 'updating' : 'uploading'} photo ${index + 1}:`, error);
+      const errorMessage = error instanceof Error ? error.message : `Error during ${mode === 'edit' ? 'update' : 'upload'}`;
       
       setPhotoForms(prev => {
         const newForms = [...prev];
@@ -215,7 +268,7 @@ export function UploadPhotoForm({ onPhotoUploaded, availableTags, onTagsUpdated 
         return newForms;
       });
       
-      toast.error(`Error uploading "${photoForm.data.title}": ${errorMessage}`);
+      toast.error(`Error ${mode === 'edit' ? 'updating' : 'uploading'} "${photoForm.data.title}": ${errorMessage}`);
       return false;
     }
   };
@@ -269,18 +322,26 @@ export function UploadPhotoForm({ onPhotoUploaded, availableTags, onTagsUpdated 
     setIsUploadingAll(false);
 
     if (successCount > 0) {
-      // Remove successful photos from the form
-      setPhotoForms(prev => prev.filter((_, index) => !successfulIndices.includes(index)));
-      
-      // Clean up preview URLs for successful uploads
-      successfulIndices.forEach(index => {
-        if (photoForms[index] && photoForms[index].previewUrl) {
-          URL.revokeObjectURL(photoForms[index].previewUrl);
+      if (mode === 'edit') {
+        // In edit mode, just show success and call callback
+        toast.success('Photo updated successfully!');
+        if (onPhotoUpdated) {
+          onPhotoUpdated();
         }
-      });
+      } else {
+        // Remove successful photos from the form (upload mode)
+        setPhotoForms(prev => prev.filter((_, index) => !successfulIndices.includes(index)));
 
-      toast.success(`${successCount} photos uploaded successfully!`);
-      onPhotoUploaded();
+        // Clean up preview URLs for successful uploads
+        successfulIndices.forEach(index => {
+          if (photoForms[index] && photoForms[index].previewUrl) {
+            URL.revokeObjectURL(photoForms[index].previewUrl);
+          }
+        });
+
+        toast.success(`${successCount} photos uploaded successfully!`);
+        onPhotoUploaded?.();
+      }
     }
 
     if (successCount < photoForms.length) {
@@ -293,51 +354,52 @@ export function UploadPhotoForm({ onPhotoUploaded, availableTags, onTagsUpdated 
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Upload className="h-5 w-5" />
-          Upload your travel photos
+          {mode === 'edit' ? 'Edit Photo' : 'Upload your travel photos'}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Drag & Drop Area */}
-        <div className="space-y-2">
-          <Label>Select images</Label>
-          <div
-            className={`border-2 border-dashed rounded-lg p-4 transition-colors ${
-              isDragOver 
-                ? 'border-blue-500 bg-blue-50' 
+        {/* Drag & Drop Area - Only show in upload mode */}
+        {mode === 'upload' && (
+          <div className="space-y-2">
+            <Label>Select images</Label>
+            <div
+              className={`border-2 border-dashed rounded-lg p-4 transition-colors ${isDragOver
+                ? 'border-blue-500 bg-blue-50'
                 : 'border-gray-300 hover:border-gray-400'
-            }`}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-          >
-            <div className="flex items-center justify-center gap-4">
-              <ImageIcon className="h-8 w-8 text-gray-400 flex-shrink-0" />
-              <div className="text-left">
-                <p className="text-sm font-medium mb-1">
-                  {isDragOver ? 'Drop images here' : 'Drag images here'}
-                </p>
-                <p className="text-xs text-gray-500">
-                  or click to select
-                </p>
+                }`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <div className="flex items-center justify-center gap-4">
+                <ImageIcon className="h-8 w-8 text-gray-400 flex-shrink-0" />
+                <div className="text-left">
+                  <p className="text-sm font-medium mb-1">
+                    {isDragOver ? 'Drop images here' : 'Drag images here'}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    or click to select
+                  </p>
+                </div>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  id="file-input"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => document.getElementById('file-input')?.click()}
+                >
+                  Choose Files
+                </Button>
               </div>
-              <Input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleFileSelect}
-                className="hidden"
-                id="file-input"
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => document.getElementById('file-input')?.click()}
-              >
-                Choose Files
-              </Button>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Global Tag Management */}
         <div className="space-y-2">
@@ -535,7 +597,12 @@ export function UploadPhotoForm({ onPhotoUploaded, availableTags, onTagsUpdated 
                 className="flex items-center gap-2"
               >
                 <Upload className="h-5 w-5" />
-                {isUploadingAll ? 'Uploading...' : `Upload All ${photoForms.length} Photos`}
+                {isUploadingAll
+                  ? (mode === 'edit' ? 'Updating...' : 'Uploading...')
+                  : mode === 'edit'
+                    ? 'Update Photo'
+                    : `Upload All ${photoForms.length} Photos`
+                }
               </Button>
             </div>
           </div>

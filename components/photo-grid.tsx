@@ -11,9 +11,10 @@ import { useApi } from '@/lib/hooks';
 interface PhotoGridProps {
   photos: TravelPhoto[];
   onPhotoDeleted: () => void;
+  onPhotoEdited: (photo: TravelPhoto) => void;
 }
 
-export function PhotoGrid({ photos, onPhotoDeleted }: PhotoGridProps) {
+export function PhotoGrid({ photos, onPhotoDeleted, onPhotoEdited }: PhotoGridProps) {
   const { client, user } = useSupabase();
   const { deleteData } = useApi();
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
@@ -21,6 +22,9 @@ export function PhotoGrid({ photos, onPhotoDeleted }: PhotoGridProps) {
     open: boolean;
     photo: TravelPhoto | null;
   }>({ open: false, photo: null });
+
+
+
 
   const deletePhotoRecord = async (id: string): Promise<void> => {
     if (!user) throw new Error('User not authenticated');
@@ -53,6 +57,10 @@ export function PhotoGrid({ photos, onPhotoDeleted }: PhotoGridProps) {
 
   const handleDeletePhoto = (photo: TravelPhoto) => {
     setConfirmDialog({ open: true, photo });
+  };
+
+  const handleEditPhoto = (photo: TravelPhoto) => {
+    onPhotoEdited(photo);
   };
 
   const confirmDelete = async () => {
@@ -101,7 +109,9 @@ export function PhotoGrid({ photos, onPhotoDeleted }: PhotoGridProps) {
             key={photo.id}
             photo={photo}
             onDelete={handleDeletePhoto}
+            onEdit={handleEditPhoto}
             deleting={deletingPhotoId === photo.id}
+
           />
         ))}
       </div>
