@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { AuthButton } from './auth-button';
+import { AuthButton } from './auth/auth-button';
 import { EnvVarWarning } from './env-var-warning';
 import { hasEnvVars } from '@/lib/utils';
 import { NextLogo } from './next-logo';

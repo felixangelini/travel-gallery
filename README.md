@@ -5,6 +5,7 @@ A modern travel photo gallery built with Next.js, Prisma, and Supabase.
 ## Architecture
 
 - **Frontend**: Next.js 15 with App Router
+- **Backend**: Next.js API Routes
 - **Database**: PostgreSQL with Prisma ORM
 - **Authentication**: Supabase Auth
 - **File Storage**: Supabase Storage
@@ -43,16 +44,19 @@ A modern travel photo gallery built with Next.js, Prisma, and Supabase.
 ├── app/                    # Next.js App Router
 │   ├── (protected)/       # Protected routes
 │   │   └── gallery/       # Photo gallery
+│   ├── api/              # API routes
+│   │   ├── photos/       # Photo endpoints
+│   │   │   ├── route.ts  # GET, POST /api/photos
+│   │   │   └── [id]/     # GET, PUT, DELETE /api/photos/[id]
+│   │   ├── tags/         # Tag endpoints
+│   │   ├── locations/    # Location endpoints
+│   │   └── users/        # User endpoints
 │   ├── auth/              # Authentication pages
 │   └── layout.tsx         # Root layout
 ├── components/            # React components
 │   ├── ui/               # shadcn/ui components
 │   └── *.tsx             # Custom components
 ├── lib/                   # Shared utilities
-│   ├── actions/          # Server actions
-│   │   ├── photo-actions.ts
-│   │   ├── tag-actions.ts
-│   │   └── location-actions.ts
 │   ├── services/         # Business logic
 │   │   ├── prisma-photo-service.ts
 │   │   ├── prisma-tag-service.ts
@@ -163,6 +167,28 @@ DATABASE_URL=your_database_url
 
 7. **Open your browser**
    Navigate to [http://localhost:3000](http://localhost:3000)
+
+## API Routes
+
+The application uses Next.js API Routes for backend functionality:
+
+### Photo Endpoints
+- `GET /api/photos` - Get all photos for authenticated user
+- `POST /api/photos` - Create a new photo
+- `GET /api/photos/[id]` - Get a specific photo
+- `PUT /api/photos/[id]` - Update a photo
+- `DELETE /api/photos/[id]` - Delete a photo
+
+### Tag Endpoints
+- `GET /api/tags` - Get all tags
+
+### Location Endpoints
+- `GET /api/locations` - Get all locations
+
+### User Endpoints
+- `POST /api/users/sync` - Sync user with database
+
+All API routes include authentication checks using Supabase Auth.
 
 ## Database Schema
 

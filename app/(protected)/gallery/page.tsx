@@ -83,6 +83,10 @@ export default function GalleryPage() {
     loadPhotos();
   };
 
+  const handlePhotoEdited = () => {
+    loadPhotos();
+  };
+
   const filteredPhotos = photos.filter(photo => {
     // Filtro per tag
     if (selectedTag && !photo.tags?.some(tag => tag.name === selectedTag)) {
@@ -180,6 +184,7 @@ export default function GalleryPage() {
         <PhotoGrid
           photos={filteredPhotos}
           onPhotoDeleted={handlePhotoDeleted}
+          onPhotoEdited={handlePhotoEdited}
         />
       </div>
     </div>

@@ -11,9 +11,10 @@ import { useApi } from '@/lib/hooks';
 interface PhotoGridProps {
   photos: TravelPhoto[];
   onPhotoDeleted: () => void;
+  onPhotoEdited: () => void;
 }
 
-export function PhotoGrid({ photos, onPhotoDeleted }: PhotoGridProps) {
+export function PhotoGrid({ photos, onPhotoDeleted, onPhotoEdited }: PhotoGridProps) {
   const { client, user } = useSupabase();
   const { deleteData } = useApi();
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
@@ -102,10 +103,11 @@ export function PhotoGrid({ photos, onPhotoDeleted }: PhotoGridProps) {
             photo={photo}
             onDelete={handleDeletePhoto}
             deleting={deletingPhotoId === photo.id}
+            onEdit={onPhotoEdited}
           />
         ))}
       </div>
-      
+
       <ConfirmDialog
         open={confirmDialog.open}
         onOpenChange={(open) => setConfirmDialog({ open, photo: null })}
