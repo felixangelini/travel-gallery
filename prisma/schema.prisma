@@ -1,0 +1,78 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String?  @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Supabase auth user ID
+  supabaseUserId String? @unique @map("supabase_user_id")
+  
+  // Relations
+  photos TravelPhoto[]
+  
+  @@map("users")
+}
+
+model TravelPhoto {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  imageUrl    String   @map("image_url")
+  location    String?
+  dateTaken   DateTime? @map("date_taken")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Many-to-many with tags
+  photoTags PhotoTag[]
+  
+  @@map("travel_photos")
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  // Many-to-many with photos
+  photoTags PhotoTag[]
+  
+  @@map("tags")
+}
+
+model PhotoTag {
+  // Relations
+  photoId String @map("photo_id")
+  photo  TravelPhoto @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  
+  tagId String @map("tag_id")
+  tag   Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  
+  @@id([photoId, tagId])
+  @@map("photo_tags")
+}
+
+model Location {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  @@map("locations")
+}
